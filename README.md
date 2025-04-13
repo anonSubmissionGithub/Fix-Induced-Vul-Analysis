@@ -10,10 +10,9 @@ https://drive.google.com/file/d/1ngsC_ES2G6OduJWVkuwvwyuuzPQvxyvn/view?usp=drive
 
 Hierarchical format of the data.
 
+```
 |--- Project_Name1/
-
 |   |
-
 |   |--- Project_Name_CommitHash1/
 |   |   |
 |   |   |--- all_versions/
@@ -34,3 +33,5 @@ Hierarchical format of the data.
 |   |--- Project_Name_CommitHash2/ ....
 |   |
 |--- Project_Name2/  ....
+```
+
