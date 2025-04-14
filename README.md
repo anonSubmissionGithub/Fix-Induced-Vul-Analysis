@@ -4,7 +4,6 @@ Metadata of the dataset is available in merged_dataset_with_CVE_CWE.csv.
 
 Metadata contains Project,	Commit,	Lines Added in Fixed Version,	Lines Deleted in Fixed Version,	Hunks in Fixed Version,	Github Link,	CWE ID	CVE ID
 
-
 Full data can be downloaded here
 https://drive.google.com/file/d/1ngsC_ES2G6OduJWVkuwvwyuuzPQvxyvn/view?usp=drive_link
 
@@ -35,3 +34,6 @@ Hierarchical format of the data.
 |--- Project_Name2/  ....
 ```
 
+**Dataset creation code**
+The dataset provided is ready to use. Here, the  details are provided about the data collection process. If you just want to use the dataset, this part is not required. 
+Data Collection.ipynb file extracts all future versions from GitHub for future analysis. It starts with BigVul dataset. Processed commit information from BigVul dataset is provided in dfVulCWE.csv. The file can be downloaded using the link
