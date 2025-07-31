@@ -1,6 +1,6 @@
 **Vul-Fix-Vul**
 
-Metadata of the dataset is available in merged_dataset_with_CVE_CWE.csv.
+Metadata of the dataset is available in merged_full_dataset_with_versions_and_claude.csv.
 
 Metadata contains Project,	Commit,	Lines Added in Fixed Version,	Lines Deleted in Fixed Version,	Hunks in Fixed Version,	Github Link,	CWE ID	CVE ID
 
