@@ -1,8 +1,8 @@
 **Fix2Fix**
 
-Metadata of the dataset is available in merged_full_dataset_with_versions_and_claude.csv.
+Metadata of the dataset is available in BVDVMV_selected_pairs_sorted_Cleaned.xlsx.
 
-Metadata contains Project,	Commit,	Lines Added in Fixed Version,	Lines Deleted in Fixed Version,	Hunks in Fixed Version,	Github Link,	CWE ID	CVE ID
+Metadata contains Project,	Commit,	Lines Added in Fixed Version,	Lines Deleted in Fixed Version,	Hunks in Fixed Version,	Github Link,	CWE ID	CVE ID, Next CWE ID, 1-line description of the change, High-level pattern of the change
 
 Full data can be downloaded here
 https://drive.google.com/file/d/1ngsC_ES2G6OduJWVkuwvwyuuzPQvxyvn/view?usp=sharing
