@@ -43,4 +43,6 @@ https://drive.google.com/file/d/1LxkCphSaoUeb1CKaDf9kj8Rf1zHrTTKX/view?usp=shari
 
 Processed commit for DiverseVul data is available in diverse_remove_dups.csv file.
 
+processed commit for MegaVul data is available in mega_filtered_deduped.csv file.
+
 Data_Process_FullyCleaned.ipynb file processed the data once the future versions are collected.
