@@ -54,4 +54,4 @@ To collect next vulnerability information from GPT, "GPT_nextVulPrompt-Cleaned.i
 
 **Use case 2**
 Classification code "ProbChunkModified-Cleaned.ipynb.ipynb". Processed data to feed the classifier can be donwloaded from here
-https://drive.google.com/drive/folders/1l5tPceAzToOEEvnfrX813YChp7rkr9Z-?usp=drive_link
+https://drive.google.com/drive/folders/1WaeLvuX8o17zxjrLtet11PfZjQcz-8Bf?usp=sharing
