@@ -38,17 +38,20 @@ Hierarchical format of the data.
 
 
 The dataset provided is ready to use. Here, the  details are provided about the data collection process. If you just want to use the dataset, this part is not required. 
-Data Collection.ipynb file extracts all future versions from GitHub for future analysis. It starts with BigVul dataset. Processed commit information from BigVul dataset is provided in dfVulCWE.csv. The file can be downloaded using the link
+Data Collection.ipynb file extracts all future versions from GitHub for future analysis. 
+
+Processed commit information from BigVul dataset is provided in dfVulCWE.csv. The file can be downloaded using the link
 https://drive.google.com/file/d/1LxkCphSaoUeb1CKaDf9kj8Rf1zHrTTKX/view?usp=sharing
-
-**Use case 1**
-To collect next vulnerability information from GPT, "GPT_nextVulPrompt-Cleaned.ipynb" is used. You need to add your API key.
-
-**Use case 2**
-Classification code "ProbChunkModified-Cleaned.ipynb.ipynb"
 
 Processed commit for DiverseVul data is available in diverse_remove_dups.csv file.
 
 processed commit for MegaVul data is available in mega_filtered_deduped.csv file.
 
 Data_Process_FullyCleaned.ipynb file processed the data once the future versions are collected.
+
+**Use case 1**
+To collect next vulnerability information from GPT, "GPT_nextVulPrompt-Cleaned.ipynb" is used. You need to add your API key.
+
+**Use case 2**
+Classification code "ProbChunkModified-Cleaned.ipynb.ipynb". Processed data to feed the classifier can be donwloaded from here
+https://drive.google.com/drive/folders/1l5tPceAzToOEEvnfrX813YChp7rkr9Z-?usp=drive_link
