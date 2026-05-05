@@ -43,7 +43,6 @@ Data Collection.ipynb file extracts all future versions from GitHub for future a
 
 Data_Process_FullyCleaned.ipynb file processed the data once the future versions are collected.
 
-**Use case**
 To collect next vulnerability information from GPT, "GPT_nextVulPrompt-Cleaned.ipynb" is used. You need to add your API key.
 
 https://drive.google.com/drive/folders/1WaeLvuX8o17zxjrLtet11PfZjQcz-8Bf?usp=sharing
