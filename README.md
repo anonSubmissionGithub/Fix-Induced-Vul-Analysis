@@ -49,9 +49,7 @@ processed commit for MegaVul data is available in mega_filtered_deduped.csv file
 
 Data_Process_FullyCleaned.ipynb file processed the data once the future versions are collected.
 
-**Use case 1**
+**Use case**
 To collect next vulnerability information from GPT, "GPT_nextVulPrompt-Cleaned.ipynb" is used. You need to add your API key.
 
-**Use case 2**
-Classification code "ProbChunkModified-Cleaned.ipynb.ipynb". Processed data to feed the classifier can be donwloaded from here
 https://drive.google.com/drive/folders/1WaeLvuX8o17zxjrLtet11PfZjQcz-8Bf?usp=sharing
