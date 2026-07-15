@@ -1,0 +1,152 @@
+I am conducting research on how software vulnerabilities evolve over time, specifically focusing on situations where a fix for one vulnerability unintentionally introduces a new vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+
+---
+
+### **Previous Fix Details**
+**Commit ID:** curl_2eb8dcf26cb37f09cffe26909a646e702dbcab66  
+**Commit Message:**  
+cookie: fix tailmatching to prevent cross-domain leakage  Cookies set for 'example.com' could accidentaly also be sent by libcurl to the 'bexample.com' (ie with a prefix to the first domain name).  This is a security vulnerabilty, CVE-2013-1944.  Bug: http://curl.haxx.se/docs/adv_20130412.html  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -118,15 +118,29 @@
+
+   free(co);
+ }
+ 
+-static bool tailmatch(const char *little, const char *bigone)
+-{
+-  size_t littlelen = strlen(little);
+-  size_t biglen = strlen(bigone);
+-
+-  if(littlelen > biglen)
++static bool tailmatch(const char *cooke_domain, const char *hostname)
++{
++  size_t cookie_domain_len = strlen(cooke_domain);
++  size_t hostname_len = strlen(hostname);
++
++  if(hostname_len < cookie_domain_len)
+     return FALSE;
+ 
+-  return Curl_raw_equal(little, bigone+biglen-littlelen) ? TRUE : FALSE;
++  if(!Curl_raw_equal(cooke_domain, hostname+hostname_len-cookie_domain_len))
++    return FALSE;
++
++  /* A lead char of cookie_domain is not '.'.
++     RFC6265 4.1.2.3. The Domain Attribute says:
++       For example, if the value of the Domain attribute is
++       "example.com", the user agent will include the cookie in the Cookie
++       header when making HTTP requests to example.com, www.example.com, and
++       www.corp.example.com.
++   */
++  if(hostname_len == cookie_domain_len)
++    return TRUE;
++  if('.' == *(hostname + hostname_len - cookie_domain_len - 1))
++    return TRUE;
++  return FALSE;
+ }
+ 
+ /*  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+hsts: ignore numberical IP address hosts  Also, use a single function library-wide for detecting if a given hostname is a numerical IP address.  Reported-by: Harry Sintonen Fixes #7146 Closes #7149  
+
+**Code Changes (Diff Format):**  
+--- v105
+
++++ v106
+
+@@ -147,31 +147,6 @@
+
+ }
+ 
+ /*
+- * isip
+- *
+- * Returns true if the given string is an IPv4 or IPv6 address (if IPv6 has
+- * been enabled while building libcurl, and false otherwise.
+- */
+-static bool isip(const char *domain)
+-{
+-  struct in_addr addr;
+-#ifdef ENABLE_IPV6
+-  struct in6_addr addr6;
+-#endif
+-
+-  if(Curl_inet_pton(AF_INET, domain, &addr)
+-#ifdef ENABLE_IPV6
+-     || Curl_inet_pton(AF_INET6, domain, &addr6)
+-#endif
+-    ) {
+-    /* domain name given as IP address */
+-    return TRUE;
+-  }
+-
+-  return FALSE;
+-}
+-
+-/*
+  * matching cookie path and url path
+  * RFC6265 5.1.4 Paths and Path-Match
+  */
+@@ -303,7 +278,7 @@
+
+   const char *top;
+   size_t len;
+ 
+-  if(!domain || isip(domain))
++  if(!domain || Curl_host_is_ipnum(domain))
+     return 0;
+ 
+   top = get_top_domain(domain, &len);
+@@ -645,7 +620,7 @@
+
+             domain = ":";
+ #endif
+ 
+-          is_ip = isip(domain ? domain : whatptr);
++          is_ip = Curl_host_is_ipnum(domain ? domain : whatptr);
+ 
+           if(!domain
+              || (is_ip && !strcmp(whatptr, domain))
+@@ -996,7 +971,7 @@
+
+    * must also check that the data handle isn't NULL since the psl code will
+    * dereference it.
+    */
+-  if(data && (domain && co->domain && !isip(co->domain))) {
++  if(data && (domain && co->domain && !Curl_host_is_ipnum(co->domain))) {
+     const psl_ctx_t *psl = Curl_psl_use(data);
+     int acceptable;
+ 
+@@ -1355,7 +1330,7 @@
+
+   remove_expired(c);
+ 
+   /* check if host is an IP(v4|v6) address */
+-  is_ip = isip(host);
++  is_ip = Curl_host_is_ipnum(host);
+ 
+   co = c->cookies[myhash];  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix."}```
+
+**Do not include any extra text outside the JSON structure.**

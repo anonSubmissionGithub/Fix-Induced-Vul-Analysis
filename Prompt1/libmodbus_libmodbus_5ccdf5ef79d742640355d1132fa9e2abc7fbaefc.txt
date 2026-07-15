@@ -1,0 +1,78 @@
+I am conducting research on how software vulnerabilities evolve over time, specifically focusing on situations where a fix for one vulnerability unintentionally introduces a new vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+
+---
+
+### **Previous Fix Details**
+**Commit ID:** libmodbus_5ccdf5ef79d742640355d1132fa9e2abc7fbaefc  
+**Commit Message:**  
+Fix VD-1301 and VD-1302 vulnerabilities  This patch was contributed by Maor Vermucht and Or Peles from VDOO Connected Trust.  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -839,9 +839,10 @@
+
+         break;
+     case MODBUS_FC_WRITE_MULTIPLE_COILS: {
+         int nb = (req[offset + 3] << 8) + req[offset + 4];
++        int nb_bits = req[offset + 5];
+         int mapping_address = address - mb_mapping->start_bits;
+ 
+-        if (nb < 1 || MODBUS_MAX_WRITE_BITS < nb) {
++        if (nb < 1 || MODBUS_MAX_WRITE_BITS < nb || nb_bits * 8 < nb) {
+             /* May be the indication has been truncated on reading because of
+              * invalid address (eg. nb is 0 but the request contains values to
+              * write) so it's necessary to flush. */
+@@ -870,9 +871,10 @@
+
+         break;
+     case MODBUS_FC_WRITE_MULTIPLE_REGISTERS: {
+         int nb = (req[offset + 3] << 8) + req[offset + 4];
++        int nb_bytes = req[offset + 5];
+         int mapping_address = address - mb_mapping->start_registers;
+ 
+-        if (nb < 1 || MODBUS_MAX_WRITE_REGISTERS < nb) {
++        if (nb < 1 || MODBUS_MAX_WRITE_REGISTERS < nb || nb_bytes * 8 < nb) {
+             rsp_length = response_exception(
+                 ctx, &sft, MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE, rsp, TRUE,
+                 "Illegal number of values %d in write_registers (max %d)\n",  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+Fix my so stupid fix for VD-1301 vulnerability  I can't believe I committed that copy/paste mistake. Sorry Maor Vermucht and Or Peles, excepted naming your original patch was OK.  Thank you Karl Palsson for your review.  
+
+**Code Changes (Diff Format):**  
+--- v4
+
++++ v5
+
+@@ -874,7 +874,7 @@
+
+         int nb_bytes = req[offset + 5];
+         int mapping_address = address - mb_mapping->start_registers;
+ 
+-        if (nb < 1 || MODBUS_MAX_WRITE_REGISTERS < nb || nb_bytes * 8 < nb) {
++        if (nb < 1 || MODBUS_MAX_WRITE_REGISTERS < nb || nb_bytes != nb * 2) {
+             rsp_length = response_exception(
+                 ctx, &sft, MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE, rsp, TRUE,
+                 "Illegal number of values %d in write_registers (max %d)\n",  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix."}```
+
+**Do not include any extra text outside the JSON structure.**

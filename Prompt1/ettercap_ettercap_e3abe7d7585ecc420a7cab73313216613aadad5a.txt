@@ -1,0 +1,83 @@
+I am conducting research on how software vulnerabilities evolve over time, specifically focusing on situations where a fix for one vulnerability unintentionally introduces a new vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+
+---
+
+### **Previous Fix Details**
+**Commit ID:** ettercap_e3abe7d7585ecc420a7cab73313216613aadad5a  
+**Commit Message:**  
+Fixed heap overflow caused by length  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -39,7 +39,7 @@
+
+    u_char status;
+    u_char user[65];
+    u_char type;
+-   u_char password[65];
++   u_char password[66];
+    u_char hash[33];
+    u_char salt[9];
+    u_char database[65];
+@@ -157,8 +157,12 @@
+
+                int length;
+                DEBUG_MSG("\tDissector_postgresql RESPONSE type is clear-text!");
+                GET_ULONG_BE(length, ptr, 1);
+-               strncpy((char*)conn_status->password, (char*)(ptr + 5), length - 4);
+-               conn_status->password[length - 4] = 0;
++               length -= 4;
++               if (length < 0 || length > 65 || PACKET->DATA.len < length+5) {
++                   dissect_wipe_session(PACKET, DISSECT_CODE(dissector_postgresql));
++                   return NULL;
++               }
++               snprintf((char*)conn_status->password, length+1, "%s", (char*)(ptr + 5));
+                DISSECT_MSG("PostgreSQL credentials:%s-%d:%s:%s\n", ip_addr_ntoa(&PACKET->L3.dst, tmp), ntohs(PACKET->L4.dst), conn_status->user, conn_status->password);
+                dissect_wipe_session(PACKET, DISSECT_CODE(dissector_postgresql));
+             }  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+Fix warning introduced in postgresql commit  
+
+**Code Changes (Diff Format):**  
+--- v3
+
++++ v4
+
+@@ -154,11 +154,11 @@
+
+                dissect_wipe_session(PACKET, DISSECT_CODE(dissector_postgresql));
+             }
+             else if (ptr[0] == 'p' && conn_status->type == CT) {
+-               int length;
++               unsigned int length;
+                DEBUG_MSG("\tDissector_postgresql RESPONSE type is clear-text!");
+                GET_ULONG_BE(length, ptr, 1);
+                length -= 4;
+-               if (length < 0 || length > 65 || PACKET->DATA.len < length+5) {
++               if (length > 65 || PACKET->DATA.len < length+5) {
+                    dissect_wipe_session(PACKET, DISSECT_CODE(dissector_postgresql));
+                    return NULL;
+                }  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix."}```
+
+**Do not include any extra text outside the JSON structure.**

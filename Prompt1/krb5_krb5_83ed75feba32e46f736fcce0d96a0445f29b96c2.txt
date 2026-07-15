@@ -1,0 +1,730 @@
+I am conducting research on how software vulnerabilities evolve over time, specifically focusing on situations where a fix for one vulnerability unintentionally introduces a new vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+
+---
+
+### **Previous Fix Details**
+**Commit ID:** krb5_83ed75feba32e46f736fcce0d96a0445f29b96c2  
+**Commit Message:**  
+Fix leaks in kadmin server stubs [CVE-2015-8631]  In each kadmind server stub, initialize the client_name and server_name variables, and release them in the cleanup handler.  Many of the stubs will otherwise leak the client and server name if krb5_unparse_name() fails.  Also make sure to free the prime_arg variables in rename_principal_2_svc(), or we can leak the first one if unparsing the second one fails.  Discovered by Simo Sorce.  CVE-2015-8631:  In all versions of MIT krb5, an authenticated attacker can cause kadmind to leak memory by supplying a null principal name in a request which uses one.  Repeating these requests will eventually cause kadmind to exhaust all available memory.      CVSSv2 Vector: AV:N/AC:L/Au:S/C:N/I:N/A:C/E:POC/RL:OF/RC:C  ticket: 8343 (new) target_version: 1.14-next target_version: 1.13-next tags: pullup  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -334,7 +334,8 @@
+
+ {
+     static generic_ret          ret;
+     char                        *prime_arg;
+-    gss_buffer_desc             client_name, service_name;
++    gss_buffer_desc             client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                   minor_stat;
+     kadm5_server_handle_t       handle;
+     restriction_t               *rp;
+@@ -382,10 +383,10 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-
+-exit_func:
++
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -395,7 +396,8 @@
+
+ {
+     static generic_ret          ret;
+     char                        *prime_arg;
+-    gss_buffer_desc             client_name, service_name;
++    gss_buffer_desc             client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                   minor_stat;
+     kadm5_server_handle_t       handle;
+     restriction_t               *rp;
+@@ -444,10 +446,10 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-
+-exit_func:
++
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -457,8 +459,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -501,10 +503,10 @@
+
+ 
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-
+-exit_func:
++
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -514,8 +516,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     restriction_t                   *rp;
+@@ -559,9 +561,9 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -570,10 +572,9 @@
+
+ rename_principal_2_svc(rprinc_arg *arg, struct svc_req *rqstp)
+ {
+     static generic_ret          ret;
+-    char                        *prime_arg1,
+-        *prime_arg2;
+-    gss_buffer_desc             client_name,
+-        service_name;
++    char                        *prime_arg1 = NULL, *prime_arg2 = NULL;
++    gss_buffer_desc             client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                   minor_stat;
+     kadm5_server_handle_t       handle;
+     restriction_t               *rp;
+@@ -655,11 +656,11 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+ 
+     }
++exit_func:
+     free(prime_arg1);
+     free(prime_arg2);
+     gss_release_buffer(&minor_stat, &client_name);
+     gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -669,8 +670,8 @@
+
+ {
+     static gprinc_ret               ret;
+     char                            *prime_arg, *funcname;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -719,9 +720,9 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -731,8 +732,8 @@
+
+ {
+     static gprincs_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -777,9 +778,9 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+ 
+     }
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -789,8 +790,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -840,9 +841,9 @@
+
+     }
+ 
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -852,8 +853,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -909,9 +910,9 @@
+
+     }
+ 
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -921,8 +922,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -969,9 +970,9 @@
+
+     }
+ 
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -981,8 +982,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -1029,9 +1030,9 @@
+
+     }
+ 
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1041,8 +1042,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -1092,9 +1093,9 @@
+
+     }
+ 
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1106,8 +1107,8 @@
+
+     krb5_keyblock               *k;
+     int                         nkeys;
+     char                        *prime_arg, *funcname;
+-    gss_buffer_desc             client_name,
+-        service_name;
++    gss_buffer_desc             client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                   minor_stat;
+     kadm5_server_handle_t       handle;
+     const char                  *errmsg = NULL;
+@@ -1164,9 +1165,9 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1178,8 +1179,8 @@
+
+     krb5_keyblock               *k;
+     int                         nkeys;
+     char                        *prime_arg, *funcname;
+-    gss_buffer_desc             client_name,
+-        service_name;
++    gss_buffer_desc             client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                   minor_stat;
+     kadm5_server_handle_t       handle;
+     const char                  *errmsg = NULL;
+@@ -1241,9 +1242,9 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1253,8 +1254,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -1295,9 +1296,9 @@
+
+         if (errmsg != NULL)
+             krb5_free_error_message(handle->context, errmsg);
+     }
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1307,8 +1308,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -1347,9 +1348,9 @@
+
+         if (errmsg != NULL)
+             krb5_free_error_message(handle->context, errmsg);
+     }
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1359,8 +1360,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -1400,9 +1401,9 @@
+
+         if (errmsg != NULL)
+             krb5_free_error_message(handle->context, errmsg);
+     }
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1413,8 +1414,8 @@
+
+     static gpol_ret             ret;
+     kadm5_ret_t         ret2;
+     char                        *prime_arg, *funcname;
+-    gss_buffer_desc             client_name,
+-        service_name;
++    gss_buffer_desc             client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                   minor_stat;
+     kadm5_principal_ent_rec     caller_ent;
+     kadm5_server_handle_t       handle;
+@@ -1475,9 +1476,9 @@
+
+         log_unauth(funcname, prime_arg,
+                    &client_name, &service_name, rqstp);
+     }
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ 
+@@ -1488,8 +1489,8 @@
+
+ {
+     static gpols_ret                ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -1531,9 +1532,9 @@
+
+         if (errmsg != NULL)
+             krb5_free_error_message(handle->context, errmsg);
+     }
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1541,7 +1542,8 @@
+
+ getprivs_ret * get_privs_2_svc(krb5_ui_4 *arg, struct svc_req *rqstp)
+ {
+     static getprivs_ret            ret;
+-    gss_buffer_desc                client_name, service_name;
++    gss_buffer_desc                client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                      minor_stat;
+     kadm5_server_handle_t          handle;
+     const char                     *errmsg = NULL;
+@@ -1571,9 +1573,9 @@
+
+     if (errmsg != NULL)
+         krb5_free_error_message(handle->context, errmsg);
+ 
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1583,7 +1585,8 @@
+
+ {
+     static generic_ret          ret;
+     char                        *prime_arg, *funcname;
+-    gss_buffer_desc             client_name, service_name;
++    gss_buffer_desc             client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                   minor_stat;
+     kadm5_server_handle_t       handle;
+ 
+@@ -1629,9 +1632,9 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1641,8 +1644,8 @@
+
+ {
+     static gstrings_ret             ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -1688,9 +1691,9 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1700,8 +1703,8 @@
+
+ {
+     static generic_ret              ret;
+     char                            *prime_arg;
+-    gss_buffer_desc                 client_name,
+-        service_name;
++    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+     OM_uint32                       minor_stat;
+     kadm5_server_handle_t           handle;
+     const char                      *errmsg = NULL;
+@@ -1744,9 +1747,9 @@
+
+             krb5_free_error_message(handle->context, errmsg);
+     }
+     free(prime_arg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-exit_func:
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     free_server_handle(handle);
+     return &ret;
+ }
+@@ -1754,8 +1757,8 @@
+
+ generic_ret *init_2_svc(krb5_ui_4 *arg, struct svc_req *rqstp)
+ {
+     static generic_ret         ret;
+-    gss_buffer_desc            client_name,
+-        service_name;
++    gss_buffer_desc            client_name = GSS_C_EMPTY_BUFFER;
++    gss_buffer_desc            service_name = GSS_C_EMPTY_BUFFER;
+     kadm5_server_handle_t      handle;
+     OM_uint32                  minor_stat;
+     const char                 *errmsg = NULL;
+@@ -1797,10 +1800,10 @@
+
+                      rqstp->rq_cred.oa_flavor);
+     if (errmsg != NULL)
+         krb5_free_error_message(NULL, errmsg);
+-    gss_release_buffer(&minor_stat, &client_name);
+-    gss_release_buffer(&minor_stat, &service_name);
+-
+-exit_func:
++
++exit_func:
++    gss_release_buffer(&minor_stat, &client_name);
++    gss_release_buffer(&minor_stat, &service_name);
+     return(&ret);
+ }  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+Remove kadmin RPC support for setting v4 key  ticket: 8794 (new)  
+
+**Code Changes (Diff Format):**  
+--- v10
+
++++ v11
+
+@@ -894,56 +894,6 @@
+
+ }
+ 
+ bool_t
+-setv4key_principal_2_svc(setv4key_arg *arg, generic_ret *ret,
+-                         struct svc_req *rqstp)
+-{
+-    char                            *prime_arg = NULL;
+-    gss_buffer_desc                 client_name = GSS_C_EMPTY_BUFFER;
+-    gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
+-    kadm5_server_handle_t           handle;
+-    const char                      *errmsg = NULL;
+-
+-    ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
+-                           &ret->api_version, &client_name, &service_name,
+-                           &prime_arg);
+-    if (ret->code)
+-        goto exit_func;
+-
+-    ret->code = check_lockdown_keys(handle, arg->princ);
+-    if (ret->code != KADM5_OK) {
+-        if (ret->code == KADM5_PROTECT_KEYS) {
+-            log_unauth("kadm5_setv4key_principal", prime_arg, &client_name,
+-                       &service_name, rqstp);
+-            ret->code = KADM5_AUTH_SETKEY;
+-        }
+-    } else if (!(CHANGEPW_SERVICE(rqstp)) &&
+-               stub_auth(handle, OP_SETKEY, arg->princ, NULL, NULL, NULL)) {
+-        ret->code = kadm5_setv4key_principal(handle, arg->princ,
+-                                             arg->keyblock);
+-    } else {
+-        log_unauth("kadm5_setv4key_principal", prime_arg,
+-                   &client_name, &service_name, rqstp);
+-        ret->code = KADM5_AUTH_SETKEY;
+-    }
+-
+-    if (ret->code != KADM5_AUTH_SETKEY) {
+-        if (ret->code != 0)
+-            errmsg = krb5_get_error_message(handle->context, ret->code);
+-
+-        log_done("kadm5_setv4key_principal", prime_arg, errmsg,
+-                 &client_name, &service_name, rqstp);
+-
+-        if (errmsg != NULL)
+-            krb5_free_error_message(handle->context, errmsg);
+-    }
+-
+-exit_func:
+-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+-    return TRUE;
+-}
+-
+-
+-bool_t
+ setkey_principal_2_svc(setkey_arg *arg, generic_ret *ret,
+                        struct svc_req *rqstp)
+ {  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix."}```
+
+**Do not include any extra text outside the JSON structure.**

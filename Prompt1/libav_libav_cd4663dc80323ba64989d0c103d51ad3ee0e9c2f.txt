@@ -1,0 +1,118 @@
+I am conducting research on how software vulnerabilities evolve over time, specifically focusing on situations where a fix for one vulnerability unintentionally introduces a new vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+
+---
+
+### **Previous Fix Details**
+**Commit ID:** libav_cd4663dc80323ba64989d0c103d51ad3ee0e9c2f  
+**Commit Message:**  
+smacker: add sanity check for length in smacker_decode_tree()  Signed-off-by: Michael Niedermayer <michaelni@gmx.at>  Bug-Id: 1098 Cc: libav-stable@libav.org Signed-off-by: Sean McGovern <gseanmcg@gmail.com>  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -43,7 +43,7 @@
+
+ 
+ #define SMKTREE_BITS 9
+ #define SMK_NODE 0x80000000
+-
++#define SMKTREE_DECODE_MAX_RECURSION 32
+ 
+ typedef struct SmackVContext {
+     AVCodecContext *avctx;
+@@ -97,6 +97,11 @@
+
+ static int smacker_decode_tree(BitstreamContext *bc, HuffContext *hc,
+                                uint32_t prefix, int length)
+ {
++    if (length > SMKTREE_DECODE_MAX_RECURSION) {
++        av_log(NULL, AV_LOG_ERROR, "Maximum tree recursion level exceeded.\n");
++        return AVERROR_INVALIDDATA;
++    }
++
+     if (!bitstream_read_bit(bc)) { // Leaf
+         if(hc->current >= 256){
+             av_log(NULL, AV_LOG_ERROR, "Tree size exceeded!\n");  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+smacker: limit recursion depth of smacker_decode_bigtree  This fixes segmentation faults due to stack-overflow caused by too deep recursion.  Reviewed-by: Michael Niedermayer <michael@niedermayer.cc> Signed-off-by: Andreas Cadhalpun <Andreas.Cadhalpun@googlemail.com> Signed-off-by: Sean McGovern <gseanmcg@gmail.com>  
+
+**Code Changes (Diff Format):**  
+--- v2
+
++++ v3
+
+@@ -44,6 +44,7 @@
+
+ #define SMKTREE_BITS 9
+ #define SMK_NODE 0x80000000
+ #define SMKTREE_DECODE_MAX_RECURSION 32
++#define SMKTREE_DECODE_BIG_MAX_RECURSION 500
+ 
+ typedef struct SmackVContext {
+     AVCodecContext *avctx;
+@@ -133,8 +134,14 @@
+
+  * Decode header tree
+  */
+ static int smacker_decode_bigtree(BitstreamContext *bc, HuffContext *hc,
+-                                  DBCtx *ctx)
+-{
++                                  DBCtx *ctx, int length)
++{
++    // Larger length can cause segmentation faults due to too deep recursion.
++    if (length > SMKTREE_DECODE_BIG_MAX_RECURSION) {
++        av_log(NULL, AV_LOG_ERROR, "Maximum bigtree recursion level exceeded.\n");
++        return AVERROR_INVALIDDATA;
++    }
++
+     if (hc->current + 1 >= hc->length) {
+         av_log(NULL, AV_LOG_ERROR, "Tree size exceeded!\n");
+         return AVERROR_INVALIDDATA;
+@@ -163,12 +170,12 @@
+
+         int r = 0, r_new, t;
+ 
+         t = hc->current++;
+-        r = smacker_decode_bigtree(bc, hc, ctx);
++        r = smacker_decode_bigtree(bc, hc, ctx, length + 1);
+         if(r < 0)
+             return r;
+         hc->values[t] = SMK_NODE | r;
+         r++;
+-        r_new = smacker_decode_bigtree(bc, hc, ctx);
++        r_new = smacker_decode_bigtree(bc, hc, ctx, length + 1);
+         if (r_new < 0)
+             return r_new;
+         return r + r_new;
+@@ -269,7 +276,7 @@
+
+         goto error;
+     }
+ 
+-    if ((res = smacker_decode_bigtree(bc, &huff, &ctx)) < 0)
++    if ((res = smacker_decode_bigtree(bc, &huff, &ctx, 0)) < 0)
+         err = res;
+     bitstream_skip(bc, 1);
+     if(ctx.last[0] == -1) ctx.last[0] = huff.current++;  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix."}```
+
+**Do not include any extra text outside the JSON structure.**
