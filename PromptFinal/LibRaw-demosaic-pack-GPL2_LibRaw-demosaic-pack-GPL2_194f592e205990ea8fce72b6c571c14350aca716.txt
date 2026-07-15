@@ -1,0 +1,97 @@
+I am conducting research on how software security vulnerabilities evolve over time, specifically focusing on situations where a fix for one security vulnerability unintentionally introduces a new security vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+---
+
+### **Previous Fix Details**
+**Commit ID:** LibRaw-demosaic-pack-GPL2_194f592e205990ea8fce72b6c571c14350aca716  
+**Commit Message:**  
+Fixed possible foveon buffer overrun (Secunia SA750000)  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -319,7 +319,7 @@
+
+ void CLASS foveon_dp_load_raw()
+ {
+   unsigned c, roff[4], row, col, diff;
+-  ushort huff[512], vpred[2][2], hpred[2];
++  ushort huff[1024], vpred[2][2], hpred[2];
+ 
+   fseek (ifp, 8, SEEK_CUR);
+   foveon_huff (huff);
+@@ -346,12 +346,16 @@
+
+ void CLASS foveon_load_camf()
+ {
+   unsigned type, wide, high, i, j, row, col, diff;
+-  ushort huff[258], vpred[2][2] = {{512,512},{512,512}}, hpred[2];
++  ushort huff[1024], vpred[2][2] = {{512,512},{512,512}}, hpred[2];
+ 
+   fseek (ifp, meta_offset, SEEK_SET);
+   type = get4();  get4();  get4();
+   wide = get4();
+   high = get4();
++#ifdef LIBRAW_LIBRARY_BUILD
++  if(wide>32767 || high > 32767 || wide*high > 20000000)
++     throw LIBRAW_EXCEPTION_IO_CORRUPT;
++#endif
+   if (type == 2) {
+     fread (meta_data, 1, meta_length, ifp);
+     for (i=0; i < meta_length; i++) {  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+Fixed foveon_interpolate range check for type==2 (Old Sigma/Polariod cameras)  
+
+**Code Changes (Diff Format):**  
+--- v2
+
++++ v3
+
+@@ -352,10 +352,6 @@
+
+   type = get4();  get4();  get4();
+   wide = get4();
+   high = get4();
+-#ifdef LIBRAW_LIBRARY_BUILD
+-  if(wide>32767 || high > 32767 || wide*high > 20000000)
+-     throw LIBRAW_EXCEPTION_IO_CORRUPT;
+-#endif
+   if (type == 2) {
+     fread (meta_data, 1, meta_length, ifp);
+     for (i=0; i < meta_length; i++) {
+@@ -364,6 +360,12 @@
+
+       meta_data[i] ^= ((((high << 8) - wide) >> 1) + wide) >> 17;
+     }
+   } else if (type == 4) {
++#ifdef LIBRAW_LIBRARY_BUILD
++  if(wide>32767 || high > 32767 || wide*high > 20000000)
++  {
++     throw LIBRAW_EXCEPTION_IO_CORRUPT;
++  }
++#endif
+     free (meta_data);
+     meta_data = (char *) malloc (meta_length = wide*high*3/2);
+     merror (meta_data, "foveon_load_camf()");  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix.", "confidence": "How confidence LLM is answering the question (In a scale of 1 to 10)?"}```
+
+**Do not include any extra text outside the JSON structure.**
+**If the previous fix is incomplete, the answer is "No" since it did not introduce a new security vulnerability. Similarly, if the previous fix did not properly fix the issue, the answer is still "No" unless a new security vulnerability is created.**

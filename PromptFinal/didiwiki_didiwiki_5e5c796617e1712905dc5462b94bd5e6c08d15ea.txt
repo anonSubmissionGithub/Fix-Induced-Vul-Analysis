@@ -1,0 +1,141 @@
+I am conducting research on how software security vulnerabilities evolve over time, specifically focusing on situations where a fix for one security vulnerability unintentionally introduces a new security vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+---
+
+### **Previous Fix Details**
+**Commit ID:** didiwiki_5e5c796617e1712905dc5462b94bd5e6c08d15ea  
+**Commit Message:**  
+page_name_is_good function  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -851,6 +851,26 @@
+
+ 		       );
+ }
+ 
++int page_name_is_good(char* page_name)
++{
++/* We should give access only to subdirs of didiwiki root.
++   I guess that check for absense of '/' is enough.
++
++   TODO: Use realpath()
++*/
++    if (!page_name)
++        return FALSE;
++
++    if (!isalnum(page[0]))
++        return FALSE;
++
++    if (strstr(page, ".."))
++        return FALSE;
++
++    return TRUE;
++}
++
++
+ void
+ wiki_handle_rest_call(HttpRequest  *req, 
+ 		      HttpResponse *res,
+@@ -866,7 +886,7 @@
+
+ 	  if (page == NULL)
+ 	    page = http_request_get_query_string(req);
+ 
+-	  if (page && (access(page, R_OK) == 0)) 
++	  if (page && page_name_is_good(page) && (access(page, R_OK) == 0))
+ 	    {
+ 	      http_response_printf(res, "%s", file_read(page));
+ 	      http_response_send(res);
+@@ -879,11 +899,14 @@
+
+ 	  if( ( (wikitext = http_request_param_get(req, "text")) != NULL)
+ 	      && ( (page = http_request_param_get(req, "page")) != NULL))
+ 	    {
+-	      file_write(page, wikitext);	      
++	  if (page_name_is_good(page))
++	    {
++	      file_write(page, wikitext);
+ 	      http_response_printf(res, "success");
+ 	      http_response_send(res);
+ 	      return;
+ 	    }
++	    }
+ 	}
+       else if (!strcmp(func, "page/delete"))
+ 	{
+@@ -892,7 +915,7 @@
+
+ 	  if (page == NULL)
+ 	    page = http_request_get_query_string(req);
+ 
+-	  if (page && (unlink(page) > 0))
++	  if (page && page_name_is_good(page) && (unlink(page) > 0))
+ 	    {
+ 	      http_response_printf(res, "success");
+ 	      http_response_send(res);
+@@ -906,7 +929,7 @@
+
+ 	  if (page == NULL)
+ 	    page = http_request_get_query_string(req);
+ 
+-	  if (page && (access(page, R_OK) == 0)) 
++	  if (page && page_name_is_good(page) && (access(page, R_OK) == 0))
+ 	    {
+ 	      http_response_printf(res, "success");
+ 	      http_response_send(res);
+@@ -1005,7 +1028,7 @@
+
+   /* A little safety. issue a malformed request for any paths,
+    * There shouldn't need to be any..
+    */
+-  if (strchr(page, '/'))
++  if (!page_name_is_good(page))
+     {
+       http_response_set_status(res, 404, "Not Found");
+       http_response_printf(res, "<html><body>404 Not Found</body></html>\n");  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+fix build  
+
+**Code Changes (Diff Format):**  
+--- v2
+
++++ v3
+
+@@ -861,10 +861,10 @@
+
+     if (!page_name)
+         return FALSE;
+ 
+-    if (!isalnum(page[0]))
++    if (!isalnum(page_name[0]))
+         return FALSE;
+ 
+-    if (strstr(page, ".."))
++    if (strstr(page_name, ".."))
+         return FALSE;
+ 
+     return TRUE;  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix.", "confidence": "How confidence LLM is answering the question (In a scale of 1 to 10)?"}```
+
+**Do not include any extra text outside the JSON structure.**
+**If the previous fix is incomplete, the answer is "No" since it did not introduce a new security vulnerability. Similarly, if the previous fix did not properly fix the issue, the answer is still "No" unless a new security vulnerability is created.**

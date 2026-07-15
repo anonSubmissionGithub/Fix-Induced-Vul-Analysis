@@ -1,0 +1,85 @@
+I am conducting research on how software security vulnerabilities evolve over time, specifically focusing on situations where a fix for one security vulnerability unintentionally introduces a new security vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+---
+
+### **Previous Fix Details**
+**Commit ID:** Little-CMS_768f70ca405cd3159d990e962d54456773bb8cf8  
+**Commit Message:**  
+Upgrade Visual studio 2017 15.8  - Upgrade to 15.8 - Add check on CGATS memory allocation (thanks to Quang Nguyen for pointing out this)  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -1,7 +1,7 @@
+
+ //---------------------------------------------------------------------------------
+ //
+ //  Little Color Management System
+-//  Copyright (c) 1998-2017 Marti Maria Saguer
++//  Copyright (c) 1998-2018 Marti Maria Saguer
+ //
+ // Permission is hereby granted, free of charge, to any person obtaining
+ // a copy of this software and associated documentation files (the "Software"),
+@@ -1506,10 +1506,16 @@
+
+     t-> nSamples   = atoi(cmsIT8GetProperty(it8, "NUMBER_OF_FIELDS"));
+     t-> nPatches   = atoi(cmsIT8GetProperty(it8, "NUMBER_OF_SETS"));
+ 
+-    t-> Data = (char**)AllocChunk (it8, ((cmsUInt32Number) t->nSamples + 1) * ((cmsUInt32Number) t->nPatches + 1) *sizeof (char*));
+-    if (t->Data == NULL) {
+-
+-        SynError(it8, "AllocateDataSet: Unable to allocate data array");
++    if (t -> nSamples < 0 || t->nSamples > 0x7ffe || t->nPatches < 0 || t->nPatches > 0x7ffe)
++    {
++        SynError(it8, "AllocateDataSet: too much data");
++    }
++    else {
++        t->Data = (char**)AllocChunk(it8, ((cmsUInt32Number)t->nSamples + 1) * ((cmsUInt32Number)t->nPatches + 1) * sizeof(char*));
++        if (t->Data == NULL) {
++
++            SynError(it8, "AllocateDataSet: Unable to allocate data array");
++        }
+     }
+ 
+ }  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+Fix a possible overflow on crafted CGATS files  we now only allow rows * colums  < 200,000 items which seems reasonable  
+
+**Code Changes (Diff Format):**  
+--- v39
+
++++ v40
+
+@@ -1684,7 +1684,8 @@
+
+     t-> nSamples   = satoi(cmsIT8GetProperty(it8, "NUMBER_OF_FIELDS"));
+     t-> nPatches   = satoi(cmsIT8GetProperty(it8, "NUMBER_OF_SETS"));
+ 
+-    if (t -> nSamples < 0 || t->nSamples > 0x7ffe || t->nPatches < 0 || t->nPatches > 0x7ffe)
++    if (t -> nSamples < 0 || t->nSamples > 0x7ffe || t->nPatches < 0 || t->nPatches > 0x7ffe || 
++        (t->nPatches * t->nSamples) > 200000)
+     {
+         SynError(it8, "AllocateDataSet: too much data");
+         return FALSE;  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix.", "confidence": "How confidence LLM is answering the question (In a scale of 1 to 10)?"}```
+
+**Do not include any extra text outside the JSON structure.**
+**If the previous fix is incomplete, the answer is "No" since it did not introduce a new security vulnerability. Similarly, if the previous fix did not properly fix the issue, the answer is still "No" unless a new security vulnerability is created.**

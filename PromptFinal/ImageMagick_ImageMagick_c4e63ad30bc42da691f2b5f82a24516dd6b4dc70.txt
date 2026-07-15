@@ -1,0 +1,99 @@
+I am conducting research on how software security vulnerabilities evolve over time, specifically focusing on situations where a fix for one security vulnerability unintentionally introduces a new security vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+---
+
+### **Previous Fix Details**
+**Commit ID:** ImageMagick_c4e63ad30bc42da691f2b5f82a24516dd6b4dc70  
+**Commit Message:**  
+https://github.com/ImageMagick/ImageMagick/issues/105  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -312,6 +312,7 @@
+
+   const QuantumInfo *quantum_info,const QuantumType quantum_type)
+ {
+   size_t
++    extent,
+     packet_size;
+ 
+   assert(quantum_info != (QuantumInfo *) NULL);
+@@ -330,9 +331,10 @@
+
+     case CMYKAQuantum: packet_size=5; break;
+     default: break;
+   }
++  extent=MagickMax(image->columns,image->rows);
+   if (quantum_info->pack == MagickFalse)
+-    return((size_t) (packet_size*image->columns*((quantum_info->depth+7)/8)));
+-  return((size_t) ((packet_size*image->columns*quantum_info->depth+7)/8));
++    return((size_t) (packet_size*extent*((quantum_info->depth+7)/8)));
++  return((size_t) ((packet_size*extent*quantum_info->depth+7)/8));
+ }
+ 
+ 
+@@ -699,8 +701,9 @@
+
+   if (quantum_info->pixels != (unsigned char **) NULL)
+     DestroyQuantumPixels(quantum_info);
+   quantum=(quantum_info->pad+6)*(quantum_info->depth+7)/8;
+-  extent=image->columns*quantum;
+-  if ((image->columns != 0) && (quantum != (extent/image->columns)))
++  extent=MagickMax(image->columns,image->rows)*quantum;
++  if ((MagickMax(image->columns,image->rows) != 0) &&
++      (quantum != (extent/MagickMax(image->columns,image->rows))))
+     return(MagickFalse);
+   return(AcquireQuantumPixels(quantum_info,extent));
+ }  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+https://github.com/ImageMagick/ImageMagick/issues/132  
+
+**Code Changes (Diff Format):**  
+--- v3
+
++++ v4
+
+@@ -312,7 +312,6 @@
+
+   const QuantumInfo *quantum_info,const QuantumType quantum_type)
+ {
+   size_t
+-    extent,
+     packet_size;
+ 
+   assert(quantum_info != (QuantumInfo *) NULL);
+@@ -334,10 +333,9 @@
+
+     case CbYCrYQuantum: packet_size=4; break;
+     default: break;
+   }
+-  extent=MagickMax(image->columns,image->rows);
+   if (quantum_info->pack == MagickFalse)
+-    return((size_t) (packet_size*extent*((quantum_info->depth+7)/8)));
+-  return((size_t) ((packet_size*extent*quantum_info->depth+7)/8));
++    return((size_t) (packet_size*image->columns*((quantum_info->depth+7)/8)));
++  return((size_t) ((packet_size*image->columns*quantum_info->depth+7)/8));
+ }  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix.", "confidence": "How confidence LLM is answering the question (In a scale of 1 to 10)?"}```
+
+**Do not include any extra text outside the JSON structure.**
+**If the previous fix is incomplete, the answer is "No" since it did not introduce a new security vulnerability. Similarly, if the previous fix did not properly fix the issue, the answer is still "No" unless a new security vulnerability is created.**

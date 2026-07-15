@@ -1,0 +1,570 @@
+I am conducting research on how software security vulnerabilities evolve over time, specifically focusing on situations where a fix for one security vulnerability unintentionally introduces a new security vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+---
+
+### **Previous Fix Details**
+**Commit ID:** domoticz_ee70db46f81afa582c96b887b73bcd2a86feda00  
+**Commit Message:**  
+Fixed possible SQL Injection Vulnerability (Thanks to Fabio Carretto!)  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -9499,43 +9499,33 @@
+
+ 
+ 							std::vector<std::vector<std::string> > result2;
+ 
+-							if (dSubType == sTypeRAINWU || dSubType == sTypeRAINByRate)
++							if (dSubType != sTypeRAINWU)
++							{
++								result2 = m_sql.safe_query(
++									"SELECT MIN(Total), MAX(Total) FROM Rain WHERE (DeviceRowID='%q' AND Date>='%q')", sd[0].c_str(), szDate);
++							}
++							else
+ 							{
+ 								result2 = m_sql.safe_query(
+ 									"SELECT Total, Total FROM Rain WHERE (DeviceRowID='%q' AND Date>='%q') ORDER BY ROWID DESC LIMIT 1", sd[0].c_str(), szDate);
+ 							}
+-							else
+-							{
+-								result2 = m_sql.safe_query(
+-									"SELECT MIN(Total), MAX(Total) FROM Rain WHERE (DeviceRowID='%q' AND Date>='%q')", sd[0].c_str(), szDate);
+-							}
+-
+ 							if (!result2.empty())
+ 							{
+ 								double total_real = 0;
+ 								float rate = 0;
+ 								std::vector<std::string> sd2 = result2[0];
+-
+-								if (dSubType == sTypeRAINWU || dSubType == sTypeRAINByRate)
+-								{
+-									total_real = atof(sd2[1].c_str());
+-								}
+-								else
++								if (dSubType != sTypeRAINWU)
+ 								{
+ 									double total_min = atof(sd2[0].c_str());
+ 									double total_max = atof(strarray[1].c_str());
+ 									total_real = total_max - total_min;
+ 								}
+-
+-								total_real *= AddjMulti;
+-								if (dSubType == sTypeRAINByRate)
+-								{
+-									rate = (static_cast<float>(atof(strarray[0].c_str())) / 10000.0f)*float(AddjMulti);
+-								}
+ 								else
+ 								{
+-									rate = (static_cast<float>(atof(strarray[0].c_str())) / 100.0f)*float(AddjMulti);
++									total_real = atof(sd2[1].c_str());
+ 								}
++								total_real *= AddjMulti;
++								rate = (static_cast<float>(atof(strarray[0].c_str())) / 100.0f)*float(AddjMulti);
+ 
+ 								sprintf(szTmp, "%.1f", total_real);
+ 								root["result"][ii]["Rain"] = szTmp;
+@@ -10782,7 +10772,7 @@
+
+ 				return;
+ 			}
+ 			std::vector<std::vector<std::string> > result;
+-			result = m_sql.safe_queryBlob("SELECT Image FROM Floorplans WHERE ID=%s", idx.c_str());
++			result = m_sql.safe_queryBlob("SELECT Image FROM Floorplans WHERE ID=%d", atol(idx.c_str()));
+ 			if (result.empty())
+ 				return;
+ 			reply::set_content(&rep, result[0][0].begin(), result[0][0].end());
+@@ -14550,18 +14540,18 @@
+
+ 						}
+ 					}
+ 					//add today (have to calculate it)
+-					if (dSubType == sTypeRAINWU || dSubType == sTypeRAINByRate)
++					if (dSubType != sTypeRAINWU)
++					{
++						result = m_sql.safe_query(
++							"SELECT MIN(Total), MAX(Total), MAX(Rate) FROM Rain WHERE (DeviceRowID=%" PRIu64 " AND Date>='%q')",
++							idx, szDateEnd);
++					}
++					else
+ 					{
+ 						result = m_sql.safe_query(
+ 							"SELECT Total, Total, Rate FROM Rain WHERE (DeviceRowID=%" PRIu64 " AND Date>='%q') ORDER BY ROWID DESC LIMIT 1",
+ 							idx, szDateEnd);
+ 					}
+-					else
+-					{
+-						result = m_sql.safe_query(
+-							"SELECT MIN(Total), MAX(Total), MAX(Rate) FROM Rain WHERE (DeviceRowID=%" PRIu64 " AND Date>='%q')",
+-							idx, szDateEnd);
+-					}
+ 					if (!result.empty())
+ 					{
+ 						std::vector<std::string> sd = result[0];
+@@ -14571,13 +14561,13 @@
+
+ 						int rate = atoi(sd[2].c_str());
+ 
+ 						double total_real = 0;
+-						if (dSubType == sTypeRAINWU || dSubType == sTypeRAINByRate)
++						if (dSubType != sTypeRAINWU)
++						{
++							total_real = total_max - total_min;
++						}
++						else
+ 						{
+ 							total_real = total_max;
+-						}
+-						else
+-						{
+-							total_real = total_max - total_min;
+ 						}
+ 						total_real *= AddjMulti;
+ 						sprintf(szTmp, "%.1f", total_real);
+@@ -15248,18 +15238,18 @@
+
+ 						}
+ 					}
+ 					//add today (have to calculate it)
+-					if (dSubType == sTypeRAINWU || dSubType == sTypeRAINByRate)
++					if (dSubType != sTypeRAINWU)
++					{
++						result = m_sql.safe_query(
++							"SELECT MIN(Total), MAX(Total), MAX(Rate) FROM Rain WHERE (DeviceRowID=%" PRIu64 " AND Date>='%q')",
++							idx, szDateEnd);
++					}
++					else
+ 					{
+ 						result = m_sql.safe_query(
+ 							"SELECT Total, Total, Rate FROM Rain WHERE (DeviceRowID=%" PRIu64 " AND Date>='%q') ORDER BY ROWID DESC LIMIT 1",
+ 							idx, szDateEnd);
+ 					}
+-					else
+-					{
+-						result = m_sql.safe_query(
+-							"SELECT MIN(Total), MAX(Total), MAX(Rate) FROM Rain WHERE (DeviceRowID=%" PRIu64 " AND Date>='%q')",
+-							idx, szDateEnd);
+-					}
+ 					if (!result.empty())
+ 					{
+ 						std::vector<std::string> sd = result[0];
+@@ -15269,13 +15259,13 @@
+
+ 						int rate = atoi(sd[2].c_str());
+ 
+ 						double total_real = 0;
+-						if (dSubType == sTypeRAINWU || dSubType == sTypeRAINByRate)
++						if (dSubType != sTypeRAINWU)
++						{
++							total_real = total_max - total_min;
++						}
++						else
+ 						{
+ 							total_real = total_max;
+-						}
+-						else
+-						{
+-							total_real = total_max - total_min;
+ 						}
+ 						total_real *= AddjMulti;
+ 						sprintf(szTmp, "%.1f", total_real);
+@@ -16738,18 +16728,18 @@
+
+ 						}
+ 					}
+ 					//add today (have to calculate it)
+-					if (dSubType == sTypeRAINWU || dSubType == sTypeRAINByRate)
++					if (dSubType != sTypeRAINWU)
++					{
++						result = m_sql.safe_query(
++							"SELECT MIN(Total), MAX(Total), MAX(Rate) FROM Rain WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q')",
++							idx, szDateEnd.c_str());
++					}
++					else
+ 					{
+ 						result = m_sql.safe_query(
+ 							"SELECT Total, Total, Rate FROM Rain WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q') ORDER BY ROWID DESC LIMIT 1",
+ 							idx, szDateEnd.c_str());
+ 					}
+-					else
+-					{
+-						result = m_sql.safe_query(
+-							"SELECT MIN(Total), MAX(Total), MAX(Rate) FROM Rain WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q')",
+-							idx, szDateEnd.c_str());
+-					}
+ 					if (!result.empty())
+ 					{
+ 						std::vector<std::string> sd = result[0];
+@@ -16759,13 +16749,13 @@
+
+ 						int rate = atoi(sd[2].c_str());
+ 
+ 						float total_real = 0;
+-						if (dSubType == sTypeRAINWU || dSubType == sTypeRAINByRate)
++						if (dSubType != sTypeRAINWU)
++						{
++							total_real = total_max - total_min;
++						}
++						else
+ 						{
+ 							total_real = total_max;
+-						}
+-						else
+-						{
+-							total_real = total_max - total_min;
+ 						}
+ 						sprintf(szTmp, "%.1f", total_real);
+ 						root["result"][ii]["d"] = szDateEnd;  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+Correct another issue when counterToday goes negative, in energy counters  
+
+**Code Changes (Diff Format):**  
+--- v105
+
++++ v106
+
+@@ -108,6 +108,7 @@
+
+ 	namespace server {
+ 
+ 		CWebServer::CWebServer()
++			: session_store()
+ 		{
+ 			m_pWebEm = nullptr;
+ 			m_bDoStop = false;
+@@ -4426,8 +4427,7 @@
+
+ 						return;
+ 					}
+ 					CGpio *pGpio = reinterpret_cast<CGpio *>(m_mainworker.GetHardware(atoi(hwdid.c_str())));
+-					if (pGpio == nullptr)
+-					{
++					if (pGpio == NULL) {
+ 						root["status"] = "ERROR";
+ 						root["message"] = "Could not retrieve GPIO hardware pointer";
+ 						return;
+@@ -4438,8 +4438,7 @@
+
+ 						return;
+ 					}
+ 					CGpioPin *pPin = CGpio::GetPPinById(atoi(sunitcode.c_str()));
+-					if (pPin == nullptr)
+-					{
++					if (pPin == NULL) {
+ 						root["status"] = "ERROR";
+ 						root["message"] = "Given pin does not exist on this GPIO hardware";
+ 						return;
+@@ -4482,8 +4481,7 @@
+
+ 
+ 					CSysfsGpio *pSysfsGpio = reinterpret_cast<CSysfsGpio *>(m_mainworker.GetHardware(atoi(hwdid.c_str())));
+ 
+-					if (pSysfsGpio == nullptr)
+-					{
++					if (pSysfsGpio == NULL) {
+ 						root["status"] = "ERROR";
+ 						root["message"] = "Could not retrieve SysfsGpio hardware pointer";
+ 						return;
+@@ -5116,18 +5114,16 @@
+
+ 						return;
+ 					}
+ 					CGpio *pGpio = reinterpret_cast<CGpio *>(m_mainworker.GetHardware(atoi(hwdid.c_str())));
+-					if (pGpio == nullptr)
+-					{
++					if (pGpio == NULL) {
+ 						return;
+ 					}
+ 					if (pGpio->HwdType != HTYPE_RaspberryGPIO) {
+ 						return;
+ 					}
+ 					CGpioPin *pPin = CGpio::GetPPinById(atoi(sunitcode.c_str()));
+-					if (pPin == nullptr)
+-					{
++					if (pPin == NULL) {
+ 						return;
+-					}
++			}
+ #else
+ 					return;
+ #endif
+@@ -5153,7 +5149,7 @@
+
+ 
+ 					CSysfsGpio *pSysfsGpio = reinterpret_cast<CSysfsGpio *>(m_mainworker.GetHardware(atoi(hwdid.c_str())));
+ 
+-					if ((pSysfsGpio == nullptr) || (pSysfsGpio->HwdType != HTYPE_SysfsGpio))
++					if ((pSysfsGpio == NULL) || (pSysfsGpio->HwdType != HTYPE_SysfsGpio))
+ 					{
+ 						return;
+ 					}
+@@ -6788,7 +6784,7 @@
+
+ 						root["status"] = "OK";
+ 						root["title"] = "LearnSW";
+ 						root["ID"] = m_sql.m_LastSwitchID;
+-						root["idx"] = Json::Value::UInt64(m_sql.m_LastSwitchRowID);
++						root["idx"] = m_sql.m_LastSwitchRowID;
+ 						root["Name"] = result[0][0];
+ 						root["Used"] = atoi(result[0][1].c_str());
+ 						root["Cmd"] = atoi(result[0][2].c_str());
+@@ -10516,7 +10512,7 @@
+
+ 							unsigned long long total_real;
+ 
+ 							total_real = total_max - total_min;
+-							sprintf(szTmp, "%llu", total_real);
++							sprintf(szTmp, "%lld", total_real);
+ 
+ 							musage = 0;
+ 							switch (metertype)
+@@ -10751,14 +10747,7 @@
+
+ 							std::vector<std::string> sd2 = result2[0];
+ 
+ 							uint64_t total_min_gas = std::stoull(sd2[0]);
+-							uint64_t gasactual;
+-							try {
+-								 gasactual = std::stoull(sValue);
+-							}
+-							catch( std::invalid_argument e ) {
+-								_log.Log(LOG_ERROR, "Gas - invalid value: '%s'", sValue.c_str());
+-								continue;
+-							}
++							uint64_t gasactual = std::stoull(sValue);
+ 							uint64_t total_real_gas = gasactual - total_min_gas;
+ 
+ 							double musage = double(gasactual) / divider;
+@@ -10867,7 +10856,9 @@
+
+ 
+ 							std::vector<std::vector<std::string> > result2;
+ 							strcpy(szTmp, "0");
+-							result2 = m_sql.safe_query("SELECT MIN(Value) FROM Meter WHERE (DeviceRowID='%q' AND Date>='%q')",
++							// get the first value of the day instead of the minimum value, because counter can also decrease
++							//result2 = m_sql.safe_query("SELECT MIN(Value) FROM Meter WHERE (DeviceRowID='%q' AND Date>='%q')",
++							result2 = m_sql.safe_query("SELECT Value FROM Meter WHERE (DeviceRowID='%q' AND Date>='%q') ORDER BY Date LIMIT 1",
+ 								sd[0].c_str(), szDate);
+ 							if (!result2.empty())
+ 							{
+@@ -11407,7 +11398,7 @@
+
+ 								unsigned long long total_real;
+ 
+ 								total_real = total_max - total_min;
+-								sprintf(szTmp, "%llu", total_real);
++								sprintf(szTmp, "%lld", total_real);
+ 							}
+ 							root["result"][ii]["SwitchTypeVal"] = MTYPE_COUNTER;
+ 							root["result"][ii]["Counter"] = sValue;
+@@ -12214,7 +12205,7 @@
+
+ 							GetLightStatus(devType, subType, switchtype, nValue, sValue, lstatus, llevel, bHaveDimmer, maxDimLevel, bHaveGroupCmd);
+ 						}
+ 						uint64_t dID = std::strtoull(sID.c_str(), nullptr, 10);
+-						root["result"][ii]["idx"] = Json::Value::UInt64(dID);
++						root["result"][ii]["idx"] = dID;
+ 						root["result"][ii]["name"] = sd[0];
+ 						root["result"][ii]["code"] = sCode;
+ 						root["result"][ii]["codestr"] = lstatus;
+@@ -12900,7 +12891,7 @@
+
+ 				ii = 0;
+ 				for (const auto &n : notifications)
+ 				{
+-					root["result"][ii]["idx"] = Json::Value::UInt64(n.ID);
++					root["result"][ii]["idx"] = n.ID;
+ 					std::string sParams = n.Params;
+ 					if (sParams.empty()) {
+ 						sParams = "S";
+@@ -14582,6 +14573,7 @@
+
+ 						{
+ 							long long minValue = std::strtoll(result[0][0].c_str(), nullptr, 10);
+ 							long long maxValue = std::strtoll(result[0][1].c_str(), nullptr, 10);
++
+ 							if ((minValue == 0) && (maxValue == 0))
+ 							{
+ 								bHaveUsage = false;
+@@ -14625,10 +14617,10 @@
+
+ 								{
+ 									//bars / hour
+ 									std::string actDateTimeHour = sd[2].substr(0, 13);
+-									long long actValue = std::strtoll(sd[0].c_str(), nullptr, 10);
+-
+-									if (actValue >= ulLastValue)
+-										ulLastValue = actValue;
++									long long actValue = std::strtoll(sd[0].c_str(), nullptr, 10); //actual energy value
++
++									//if (actValue >= ulLastValue) ulLastValue = actValue; //Removed because usage energy may be negative if the production power is greater than usage power
++									ulLastValue = actValue;
+ 
+ 									if (actDateTimeHour != LastDateTime || ((method == 1) && (itt + 1 == result.end())))
+ 									{
+@@ -15440,19 +15432,29 @@
+
+ 						}
+ 					}
+ 					else if (!bIsManagedCounter)
+-					{
+-						result = m_sql.safe_query("SELECT MIN(Value), MAX(Value) FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q')",
++					{	
++						// get the first value of the day
++						result = m_sql.safe_query("SELECT Value FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q') ORDER BY Date ASC LIMIT 1",
+ 							idx, szDateEnd);
+ 						if (!result.empty())
+ 						{
+ 							std::vector<std::string> sd = result[0];
+ 
+ 							unsigned long long total_min = std::strtoull(sd[0].c_str(), nullptr, 10);
+-							unsigned long long total_max = std::strtoull(sd[1].c_str(), nullptr, 10);
++							unsigned long long total_max = total_min;
+ 							unsigned long long total_real;
+ 
++							// get the last value of the day
++							result = m_sql.safe_query("SELECT Value FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q') ORDER BY Date DESC LIMIT 1",
++									idx, szDateEnd);
++							if (!result.empty())
++							{
++								std::vector<std::string> sd = result[0];
++								total_max = std::strtoull(sd[0].c_str(), nullptr, 10);
++							}
++
+ 							total_real = total_max - total_min;
+-							sprintf(szTmp, "%llu", total_real);
++							sprintf(szTmp, "%lld", total_real);
+ 							std::string szValue = szTmp;
+ 							switch (metertype)
+ 							{
+@@ -16489,7 +16491,7 @@
+
+ 						}
+ 						else if (dType == pTypeENERGY)
+ 						{
+-							size_t spos = sValue.find(';');
++							size_t spos = sValue.find(";");
+ 							if (spos != std::string::npos)
+ 							{
+ 								float fvalue = static_cast<float>(atof(sValue.substr(spos + 1).c_str()));
+@@ -16499,7 +16501,7 @@
+
+ 						}
+ 						else if ((dType == pTypeGeneral) && (dSubType == sTypeKwh))
+ 						{
+-							size_t spos = sValue.find(';');
++							size_t spos = sValue.find(";");
+ 							if (spos != std::string::npos)
+ 							{
+ 								float fvalue = static_cast<float>(atof(sValue.substr(spos + 1).c_str()));
+@@ -16886,18 +16888,28 @@
+
+ 					}
+ 					else if (!bIsManagedCounter)
+ 					{
++						// get the first value
+ 						result = m_sql.safe_query(
+-							"SELECT MIN(Value), MAX(Value) FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q')",
++							//"SELECT MIN(Value), MAX(Value) FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q')",
++							"SELECT Value FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q') ORDER BY Date ASC LIMIT 1",
+ 							idx, szDateEnd);
+ 						if (!result.empty())
+ 						{
+ 							std::vector<std::string> sd = result[0];
+ 							unsigned long long total_min = std::strtoull(sd[0].c_str(), nullptr, 10);
+-							unsigned long long total_max = std::strtoull(sd[1].c_str(), nullptr, 10);
++							unsigned long long total_max = total_min;
+ 							unsigned long long total_real;
++					
++							// Get the last value
++							result = m_sql.safe_query("SELECT Value FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q') ORDER BY Date DESC LIMIT 1",
++									idx, szDateEnd);
++							if (!result.empty()) {
++							std::vector<std::string> sd = result[0];
++								total_max = std::strtoull(sd[0].c_str(), nullptr, 10);
++							}
+ 
+ 							total_real = total_max - total_min;
+-							sprintf(szTmp, "%llu", total_real);
++							sprintf(szTmp, "%lld", total_real);
+ 
+ 							root["result"][ii]["d"] = szDateEnd;
+ 
+@@ -17544,7 +17556,7 @@
+
+ 
+ 							root["result"][ii]["d"] = szDateEnd;
+ 
+-							sprintf(szTmp, "%llu", total_real_usage);
++							sprintf(szTmp, "%lld", total_real_usage);
+ 							std::string szValue = szTmp;
+ 							sprintf(szTmp, "%.3f", atof(szValue.c_str()) / divider);
+ 							root["result"][ii]["v"] = szTmp;
+@@ -17560,19 +17572,30 @@
+
+ 						}
+ 					}
+ 					else if (!bIsManagedCounter)
+-					{
++					{	// get the first value of the day
+ 						result = m_sql.safe_query(
+-							"SELECT MIN(Value), MAX(Value) FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q')",
++							//"SELECT MIN(Value), MAX(Value) FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q')",
++							"SELECT Value FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q') ORDER BY Date ASC LIMIT 1",
+ 							idx, szDateEnd.c_str());
+ 						if (!result.empty())
+ 						{
+ 							std::vector<std::string> sd = result[0];
+ 							unsigned long long total_min = std::strtoull(sd[0].c_str(), nullptr, 10);
+-							unsigned long long total_max = std::strtoull(sd[1].c_str(), nullptr, 10);
++							unsigned long long total_max = total_min;
+ 							unsigned long long total_real;
+ 
++							// get the last value of the day
++							result = m_sql.safe_query(
++								"SELECT Value FROM Meter WHERE (DeviceRowID==%" PRIu64 " AND Date>='%q') ORDER BY Date DESC LIMIT 1",
++								idx, szDateEnd.c_str());
++							if (!result.empty())
++							{
++								std::vector<std::string> sd = result[0];
++								total_max = std::strtoull(sd[0].c_str(), nullptr, 10);
++							}
++
+ 							total_real = total_max - total_min;
+-							sprintf(szTmp, "%llu", total_real);
++							sprintf(szTmp, "%lld", total_real);
+ 
+ 							std::string szValue = szTmp;
+ 							switch (metertype)
+@@ -17775,5 +17798,5 @@
+
+ 			m_sql.safe_query("DELETE FROM UserSessions WHERE (Username=='%q') and (SessionID!='%q')", username.c_str(), exceptSession.id.c_str());
+ 		}
+ 
+-	} // namespace server
+-} // namespace http
++	} //server
++}//http  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix.", "confidence": "How confidence LLM is answering the question (In a scale of 1 to 10)?"}```
+
+**Do not include any extra text outside the JSON structure.**
+**If the previous fix is incomplete, the answer is "No" since it did not introduce a new security vulnerability. Similarly, if the previous fix did not properly fix the issue, the answer is still "No" unless a new security vulnerability is created.**

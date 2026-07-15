@@ -1,0 +1,100 @@
+I am conducting research on how software security vulnerabilities evolve over time, specifically focusing on situations where a fix for one security vulnerability unintentionally introduces a new security vulnerability.
+
+You will be provided with details from two commits:
+
+1. **Previous Fix Commit** – A commit that fixed a known vulnerability.
+2. **Future Candidate Commit** – A later commit that modifies the same or nearby code.
+
+Your task is to determine whether the **candidate commit** is fixing a new vulnerability that was introduced by the **previous fix**.
+---
+
+### **Previous Fix Details**
+**Commit ID:** libjpeg-turbo_43e84cff1bb2bd8293066f6ac4eb0df61ddddbc6  
+**Commit Message:**  
+tjLoadImage(): Fix FPE triggered by malformed BMP  In rdbmp.c, it is necessary to guard against 32-bit overflow/wraparound when allocating the row buffer, because since BMP files have 32-bit width and height fields, the value of biWidth can be up to 4294967295. Specifically, if biWidth is 1073741824 and cinfo->input_components = 4, then the samplesperrow argument in alloc_sarray() would wrap around to 0, and a division by zero error would occur at line 458 in jmemmgr.c.  If biWidth is set to a higher value, then samplesperrow would wrap around to a small number, which would likely cause a buffer overflow (this has not been tested or verified.)  
+
+**Code Changes (Diff Format):**  
+--- v1
+
++++ v2
+
+@@ -6,7 +6,7 @@
+
+  * Modified 2009-2010 by Guido Vollbeding.
+  * libjpeg-turbo Modifications:
+  * Modified 2011 by Siarhei Siamashka.
+- * Copyright (C) 2015, 2017, D. R. Commander.
++ * Copyright (C) 2015, 2017-2018, D. R. Commander.
+  * For conditions of distribution and use, see the accompanying README.ijg
+  * file.
+  *
+@@ -623,6 +623,12 @@
+
+     }
+   }
+ 
++  /* Ensure that biWidth * cinfo->input_components doesn't exceed the maximum
++     value of the JDIMENSION type.  This is only a danger with BMP files, since
++     their width and height fields are 32-bit integers. */
++  if ((unsigned long long)biWidth *
++      (unsigned long long)cinfo->input_components > 0xFFFFFFFFULL)
++    ERREXIT(cinfo, JERR_WIDTH_OVERFLOW);
+   /* Allocate one-row buffer for returned data */
+   source->pub.buffer = (*cinfo->mem->alloc_sarray)
+     ((j_common_ptr)cinfo, JPOOL_IMAGE,  
+
+---
+
+### **Future Candidate Details**
+**Commit Message:**  
+TurboJPEG: Expose/extend hidden "max pixels" param  TJPARAM_MAXPIXELS was previously hidden and used only for fuzz testing, but it is potentially useful for calling applications as well, particularly if they want to guard against excessive memory consumption by the tj3LoadImage*() functions.  The parameter has also been extended to decompression and lossless transformation functions/methods, mainly as a convenience.  (It was already possible for calling applications to impose their own JPEG image size limits by reading the JPEG header prior to decompressing or transforming the image.)  
+
+**Code Changes (Diff Format):**  
+--- v15
+
++++ v16
+
+@@ -6,7 +6,7 @@
+
+  * Modified 2009-2017 by Guido Vollbeding.
+  * libjpeg-turbo Modifications:
+  * Modified 2011 by Siarhei Siamashka.
+- * Copyright (C) 2015, 2017-2018, 2021-2022, D. R. Commander.
++ * Copyright (C) 2015, 2017-2018, 2021-2023, D. R. Commander.
+  * For conditions of distribution and use, see the accompanying README.ijg
+  * file.
+  *
+@@ -523,11 +523,9 @@
+
+ 
+   if (biWidth <= 0 || biHeight <= 0)
+     ERREXIT(cinfo, JERR_BMP_EMPTY);
+-#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+   if (sinfo->max_pixels &&
+       (unsigned long long)biWidth * biHeight > sinfo->max_pixels)
+-    ERREXIT(cinfo, JERR_WIDTH_OVERFLOW);
+-#endif
++    ERREXIT1(cinfo, JERR_IMAGE_TOO_BIG, sinfo->max_pixels);
+   if (biPlanes != 1)
+     ERREXIT(cinfo, JERR_BMP_BADPLANES);
+ 
+@@ -681,9 +679,7 @@
+
+   /* Fill in method ptrs, except get_pixel_rows which start_input sets */
+   source->pub.start_input = start_input_bmp;
+   source->pub.finish_input = finish_input_bmp;
+-#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+   source->pub.max_pixels = 0;
+-#endif
+ 
+   source->use_inversion_array = use_inversion_array;  
+
+---
+
+### **Your Response Format (Strictly Follow This JSON Format)**
+Please respond **only with a valid JSON object** in the following format:
+
+```{"answer": "Yes" or "No", "reasoning": "Detailed explanation of why the candidate commit is or is not fixing a vulnerability introduced by the previous fix.", "confidence": "How confidence LLM is answering the question (In a scale of 1 to 10)?"}```
+
+**Do not include any extra text outside the JSON structure.**
+**If the previous fix is incomplete, the answer is "No" since it did not introduce a new security vulnerability. Similarly, if the previous fix did not properly fix the issue, the answer is still "No" unless a new security vulnerability is created.**
